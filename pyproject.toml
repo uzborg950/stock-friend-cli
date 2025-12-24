@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "stock-friend-cli"
+version = "0.1.0"
+description = "Halal-compliant stock screening CLI tool"
+authors = ["Muhammad Abid <muhammad.abid@example.com>"]
+readme = "README.md"
+packages = [{include = "stock_friend", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+rich = "^13.0"
+typer = "^0.20.1"
+questionary = "^2.0"
+pandas = "^2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-mock = "^3.0"
+pytest-cov = "^4.0"
+ruff = "^0.1"
+mypy = "^1.0"
+
+[tool.poetry.scripts]
+stock-friend = "stock_friend.__main__:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=src/stock_friend --cov-report=term-missing --cov-report=html"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
