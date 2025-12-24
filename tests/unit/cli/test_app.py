@@ -69,6 +69,282 @@ class TestCliCommands:
         assert "not found" in result.stdout.lower()
 
 
+class TestStrategyCommands:
+    """Test cases for strategy subcommands."""
+
+    @patch("stock_friend.cli.app.get_mock_strategies")
+    def test_strategy_list_displays_all_strategies(
+        self, mock_get_strategies: MagicMock
+    ) -> None:
+        """Test that strategy list command displays all strategies."""
+        mock_get_strategies.return_value = [
+            {
+                "id": "1",
+                "name": "Momentum Strategy",
+                "description": "High momentum stocks",
+                "universe": "SP500",
+                "created_date": "2024-01-01",
+                "conditions": ["MCDX > 0", "Volume > 1M"],
+            },
+            {
+                "id": "2",
+                "name": "Value Strategy",
+                "description": "Undervalued stocks",
+                "universe": "SP500",
+                "created_date": "2024-01-02",
+                "conditions": ["P/E < 15"],
+            },
+        ]
+
+        result = runner.invoke(app, ["strategy", "list"])
+        assert result.exit_code == 0
+        assert "Momentum Strategy" in result.stdout
+        assert "Value Strategy" in result.stdout
+
+    @patch("stock_friend.cli.app.get_mock_strategies")
+    def test_strategy_list_handles_empty_list(
+        self, mock_get_strategies: MagicMock
+    ) -> None:
+        """Test that strategy list handles empty strategy list."""
+        mock_get_strategies.return_value = []
+
+        result = runner.invoke(app, ["strategy", "list"])
+        assert result.exit_code == 0
+        assert "No strategies found" in result.stdout
+
+    @patch("stock_friend.cli.app._find_strategy_by_id_or_name")
+    def test_strategy_view_with_valid_id_as_positional_arg(
+        self, mock_find_strategy: MagicMock
+    ) -> None:
+        """Test strategy view command with valid ID as positional argument."""
+        mock_find_strategy.return_value = {
+            "id": "1",
+            "name": "Momentum Strategy",
+            "description": "High momentum stocks",
+            "universe": "SP500",
+            "created_date": "2024-01-01",
+            "conditions": ["MCDX > 0", "Volume > 1M"],
+        }
+
+        result = runner.invoke(app, ["strategy", "view", "1"])
+        assert result.exit_code == 0
+        assert "Momentum Strategy" in result.stdout
+        assert "MCDX > 0" in result.stdout
+        mock_find_strategy.assert_called_once_with("1")
+
+    @patch("stock_friend.cli.app._find_strategy_by_id_or_name")
+    def test_strategy_view_with_valid_name_as_positional_arg(
+        self, mock_find_strategy: MagicMock
+    ) -> None:
+        """Test strategy view command with valid name as positional argument."""
+        mock_find_strategy.return_value = {
+            "id": "1",
+            "name": "Momentum Strategy",
+            "description": "High momentum stocks",
+            "universe": "SP500",
+            "created_date": "2024-01-01",
+            "conditions": ["MCDX > 0", "Volume > 1M"],
+        }
+
+        result = runner.invoke(app, ["strategy", "view", "momentum"])
+        assert result.exit_code == 0
+        assert "Momentum Strategy" in result.stdout
+        mock_find_strategy.assert_called_once_with("momentum")
+
+    @patch("stock_friend.cli.app._find_strategy_by_id_or_name")
+    def test_strategy_view_with_quoted_name_as_positional_arg(
+        self, mock_find_strategy: MagicMock
+    ) -> None:
+        """Test strategy view command with quoted name as positional argument."""
+        mock_find_strategy.return_value = {
+            "id": "1",
+            "name": "Default Momentum Strategy",
+            "description": "High momentum stocks",
+            "universe": "SP500",
+            "created_date": "2024-01-01",
+            "conditions": ["MCDX > 0", "Volume > 1M"],
+        }
+
+        result = runner.invoke(app, ["strategy", "view", "Default Momentum Strategy"])
+        assert result.exit_code == 0
+        assert "Default Momentum Strategy" in result.stdout
+        mock_find_strategy.assert_called_once_with("Default Momentum Strategy")
+
+    @patch("stock_friend.cli.app._find_strategy_by_id_or_name")
+    def test_strategy_view_with_invalid_identifier(
+        self, mock_find_strategy: MagicMock
+    ) -> None:
+        """Test strategy view command with invalid identifier."""
+        mock_find_strategy.return_value = None
+
+        result = runner.invoke(app, ["strategy", "view", "999"])
+        assert result.exit_code == 1
+        assert "not found" in result.stdout.lower()
+        assert "strategy list" in result.stdout.lower()
+
+    def test_strategy_view_requires_identifier_argument(self) -> None:
+        """Test that strategy view command requires identifier argument."""
+        result = runner.invoke(app, ["strategy", "view"])
+        assert result.exit_code != 0
+        # Typer shows errors in stderr, not stdout
+        output = result.stdout + (result.stderr or "")
+        assert "Missing argument" in output or "required" in output.lower()
+
+
+class TestPortfolioCommands:
+    """Test cases for portfolio subcommands."""
+
+    @patch("stock_friend.cli.app.get_mock_portfolios")
+    def test_portfolio_list_displays_all_portfolios(
+        self, mock_get_portfolios: MagicMock
+    ) -> None:
+        """Test that portfolio list command displays all portfolios."""
+        mock_get_portfolios.return_value = [
+            {
+                "id": "1",
+                "name": "Growth Portfolio",
+                "strategy_name": "Momentum Strategy",
+                "description": "High growth stocks",
+                "created_date": "2024-01-01",
+                "holdings": [{"ticker": "AAPL"}],
+                "total_value": 10000.0,
+                "total_cost": 9000.0,
+                "total_gain_loss": 1000.0,
+                "total_gain_loss_pct": 11.11,
+            },
+            {
+                "id": "2",
+                "name": "Value Portfolio",
+                "strategy_name": "Value Strategy",
+                "description": "Undervalued stocks",
+                "created_date": "2024-01-02",
+                "holdings": [{"ticker": "MSFT"}],
+                "total_value": 5000.0,
+                "total_cost": 5500.0,
+                "total_gain_loss": -500.0,
+                "total_gain_loss_pct": -9.09,
+            },
+        ]
+
+        result = runner.invoke(app, ["portfolio", "list"])
+        assert result.exit_code == 0
+        assert "Growth Portfolio" in result.stdout
+        assert "Value Portfolio" in result.stdout
+
+    @patch("stock_friend.cli.app.get_mock_portfolios")
+    def test_portfolio_list_handles_empty_list(
+        self, mock_get_portfolios: MagicMock
+    ) -> None:
+        """Test that portfolio list handles empty portfolio list."""
+        mock_get_portfolios.return_value = []
+
+        result = runner.invoke(app, ["portfolio", "list"])
+        assert result.exit_code == 0
+        assert "No portfolios found" in result.stdout
+
+    @patch("stock_friend.cli.app._find_portfolio_by_id_or_name")
+    def test_portfolio_view_with_valid_id_as_positional_arg(
+        self, mock_find_portfolio: MagicMock
+    ) -> None:
+        """Test portfolio view command with valid ID as positional argument."""
+        mock_find_portfolio.return_value = {
+            "id": "1",
+            "name": "Growth Portfolio",
+            "strategy_name": "Momentum Strategy",
+            "description": "High growth stocks",
+            "created_date": "2024-01-01",
+            "holdings": [
+                {
+                    "ticker": "AAPL",
+                    "name": "Apple Inc.",
+                    "shares": 10,
+                    "cost_basis": 150.0,
+                    "current_price": 175.0,
+                    "current_value": 1750.0,
+                    "gain_loss": 250.0,
+                    "gain_loss_pct": 16.67,
+                }
+            ],
+            "total_value": 10000.0,
+            "total_cost": 9000.0,
+            "total_gain_loss": 1000.0,
+            "total_gain_loss_pct": 11.11,
+        }
+
+        result = runner.invoke(app, ["portfolio", "view", "1"])
+        assert result.exit_code == 0
+        assert "Growth Portfolio" in result.stdout
+        # Rich may truncate ticker, so check for the full company name instead
+        assert "Apple Inc." in result.stdout
+        mock_find_portfolio.assert_called_once_with("1")
+
+    @patch("stock_friend.cli.app._find_portfolio_by_id_or_name")
+    def test_portfolio_view_with_valid_name_as_positional_arg(
+        self, mock_find_portfolio: MagicMock
+    ) -> None:
+        """Test portfolio view command with valid name as positional argument."""
+        mock_find_portfolio.return_value = {
+            "id": "1",
+            "name": "Growth Portfolio",
+            "strategy_name": "Momentum Strategy",
+            "description": "High growth stocks",
+            "created_date": "2024-01-01",
+            "holdings": [],
+            "total_value": 10000.0,
+            "total_cost": 9000.0,
+            "total_gain_loss": 1000.0,
+            "total_gain_loss_pct": 11.11,
+        }
+
+        result = runner.invoke(app, ["portfolio", "view", "growth"])
+        assert result.exit_code == 0
+        assert "Growth Portfolio" in result.stdout
+        mock_find_portfolio.assert_called_once_with("growth")
+
+    @patch("stock_friend.cli.app._find_portfolio_by_id_or_name")
+    def test_portfolio_view_with_quoted_name_as_positional_arg(
+        self, mock_find_portfolio: MagicMock
+    ) -> None:
+        """Test portfolio view command with quoted name as positional argument."""
+        mock_find_portfolio.return_value = {
+            "id": "1",
+            "name": "Growth Portfolio",
+            "strategy_name": "Momentum Strategy",
+            "description": "High growth stocks",
+            "created_date": "2024-01-01",
+            "holdings": [],
+            "total_value": 10000.0,
+            "total_cost": 9000.0,
+            "total_gain_loss": 1000.0,
+            "total_gain_loss_pct": 11.11,
+        }
+
+        result = runner.invoke(app, ["portfolio", "view", "Growth Portfolio"])
+        assert result.exit_code == 0
+        assert "Growth Portfolio" in result.stdout
+        mock_find_portfolio.assert_called_once_with("Growth Portfolio")
+
+    @patch("stock_friend.cli.app._find_portfolio_by_id_or_name")
+    def test_portfolio_view_with_invalid_identifier(
+        self, mock_find_portfolio: MagicMock
+    ) -> None:
+        """Test portfolio view command with invalid identifier."""
+        mock_find_portfolio.return_value = None
+
+        result = runner.invoke(app, ["portfolio", "view", "999"])
+        assert result.exit_code == 1
+        assert "not found" in result.stdout.lower()
+        assert "portfolio list" in result.stdout.lower()
+
+    def test_portfolio_view_requires_identifier_argument(self) -> None:
+        """Test that portfolio view command requires identifier argument."""
+        result = runner.invoke(app, ["portfolio", "view"])
+        assert result.exit_code != 0
+        # Typer shows errors in stderr, not stdout
+        output = result.stdout + (result.stderr or "")
+        assert "Missing argument" in output or "required" in output.lower()
+
+
 class TestInteractiveMenu:
     """Test cases for interactive menu."""
 
