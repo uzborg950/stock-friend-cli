@@ -1438,7 +1438,7 @@ if __name__ == "__main__":
 ### 6.1 Strategy Configuration Schema
 
 ```json
-{
+{ 
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Investment Strategy Configuration",
   "type": "object",

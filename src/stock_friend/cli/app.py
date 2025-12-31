@@ -10,6 +10,7 @@ from stock_friend.cli.menu import MenuOption, display_main_menu, display_welcome
 from stock_friend.cli.portfolio_cli import run_portfolio_management
 from stock_friend.cli.screening_cli import run_screening_workflow
 from stock_friend.cli.strategy_cli import run_strategy_management
+from stock_friend.cli.search_cli import search_stock
 from stock_friend.cli.mock_data import (
     get_mock_screening_results,
     get_mock_strategy_by_id,
@@ -17,7 +18,7 @@ from stock_friend.cli.mock_data import (
     get_mock_portfolios,
     get_mock_portfolio_by_id,
 )
-from difflib import get_close_matches
+import difflib
 from stock_friend import __version__
 from rich.table import Table
 from rich.panel import Panel
@@ -37,70 +38,118 @@ portfolio_app = typer.Typer(help="Manage investment portfolios")
 
 def _find_strategy_by_id_or_name(identifier: str) -> dict[str, Any] | None:
     """
-    Find strategy by ID or fuzzy match by name.
+    Find strategy by ID or name with intelligent matching.
+
+    Matching priority:
+    1. Exact ID match
+    2. Exact name match (case-insensitive)
+    3. Substring match (identifier contained in name)
+    4. Word-level fuzzy match (identifier matches any word in name)
+    5. Whole-string fuzzy match
 
     Args:
-        identifier: Strategy ID or name to search for.
+        identifier: Strategy ID or name (full or partial)
 
     Returns:
-        Strategy dictionary if found, None otherwise.
+        Strategy dictionary if found, None otherwise
     """
-    # Try exact ID match first
+    strategies = get_mock_strategies()
+
+    # Guard: Empty strategies list
+    if not strategies:
+        return None
+
+    # Step 1: Exact ID match
     strategy = get_mock_strategy_by_id(identifier)
     if strategy:
         return strategy
 
-    # Try fuzzy match by name
-    strategies = get_mock_strategies()
-    if not strategies:
-        return None
+    # Normalize identifier for case-insensitive matching
+    identifier_lower = identifier.lower()
 
-    strategy_names = [s["name"] for s in strategies]
-    matches = get_close_matches(identifier, strategy_names, n=1, cutoff=0.6)
-
-    if not matches:
-        return None
-
-    # Find strategy by matched name
-    matched_name = matches[0]
+    # Step 2: Exact name match (case-insensitive)
     for strategy in strategies:
-        if strategy["name"] == matched_name:
+        if strategy["name"].lower() == identifier_lower:
             return strategy
+
+    # Step 3: Substring match - identifier contained in name
+    for strategy in strategies:
+        if identifier_lower in strategy["name"].lower():
+            return strategy
+
+    # Step 4: Word-level fuzzy match - identifier matches any word in name
+    for strategy in strategies:
+        name_words = strategy["name"].lower().split()
+        # Check if identifier fuzzy-matches any word (60% similarity)
+        if any(difflib.SequenceMatcher(None, identifier_lower, word).ratio() >= 0.6
+               for word in name_words):
+            return strategy
+
+    # Step 5: Fallback - whole string fuzzy match
+    strategy_names = [s["name"] for s in strategies]
+    matches = difflib.get_close_matches(identifier, strategy_names, n=1, cutoff=0.6)
+
+    if matches:
+        return next(s for s in strategies if s["name"] == matches[0])
 
     return None
 
 
 def _find_portfolio_by_id_or_name(identifier: str) -> dict[str, Any] | None:
     """
-    Find portfolio by ID or fuzzy match by name.
+    Find portfolio by ID or name with intelligent matching.
+
+    Matching priority:
+    1. Exact ID match
+    2. Exact name match (case-insensitive)
+    3. Substring match (identifier contained in name)
+    4. Word-level fuzzy match (identifier matches any word in name)
+    5. Whole-string fuzzy match
 
     Args:
-        identifier: Portfolio ID or name to search for.
+        identifier: Portfolio ID or name (full or partial)
 
     Returns:
-        Portfolio dictionary if found, None otherwise.
+        Portfolio dictionary if found, None otherwise
     """
-    # Try exact ID match first
+    portfolios = get_mock_portfolios()
+
+    # Guard: Empty portfolios list
+    if not portfolios:
+        return None
+
+    # Step 1: Exact ID match
     portfolio = get_mock_portfolio_by_id(identifier)
     if portfolio:
         return portfolio
 
-    # Try fuzzy match by name
-    portfolios = get_mock_portfolios()
-    if not portfolios:
-        return None
+    # Normalize identifier for case-insensitive matching
+    identifier_lower = identifier.lower()
 
-    portfolio_names = [p["name"] for p in portfolios]
-    matches = get_close_matches(identifier, portfolio_names, n=1, cutoff=0.6)
-
-    if not matches:
-        return None
-
-    # Find portfolio by matched name
-    matched_name = matches[0]
+    # Step 2: Exact name match (case-insensitive)
     for portfolio in portfolios:
-        if portfolio["name"] == matched_name:
+        if portfolio["name"].lower() == identifier_lower:
             return portfolio
+
+    # Step 3: Substring match - identifier contained in name
+    for portfolio in portfolios:
+        if identifier_lower in portfolio["name"].lower():
+            return portfolio
+
+    # Step 4: Word-level fuzzy match - identifier matches any word in name
+    for portfolio in portfolios:
+        name_words = portfolio["name"].lower().split()
+        # Check if identifier fuzzy-matches any word (60% similarity)
+        if any(difflib.SequenceMatcher(None, identifier_lower, word).ratio() >= 0.6
+               for word in name_words):
+            return portfolio
+
+    # Step 5: Fallback - whole string fuzzy match
+    portfolio_names = [p["name"] for p in portfolios]
+    matches = difflib.get_close_matches(identifier, portfolio_names, n=1, cutoff=0.6)
+
+    if matches:
+        return next(p for p in portfolios if p["name"] == matches[0])
 
     return None
 
@@ -207,6 +256,46 @@ def version() -> None:
     """Display application version information."""
 
     console.print(f"\n[cyan]Stock Friend CLI[/cyan] version [bold]{__version__}[/bold]\n")
+
+
+@app.command()
+def search(
+    query: Annotated[str, typer.Argument(help="Ticker symbol or company name")],
+    exchange: Annotated[
+        str | None,
+        typer.Option("--exchange", "-e", help="Exchange suffix (e.g., L, TO, AX)"),
+    ] = None,
+    chart: Annotated[
+        bool,
+        typer.Option("--chart", "-c", help="Display historical price chart"),
+    ] = False,
+    period: Annotated[
+        str,
+        typer.Option("--period", "-p", help="Chart time period (1mo, 3mo, 6mo, 1y, 5y)"),
+    ] = "3mo",
+    chart_type: Annotated[
+        str,
+        typer.Option("--type", "-t", help="Chart type (candlestick, line, both)"),
+    ] = "candlestick",
+) -> None:
+    """
+    Search for stocks by ticker symbol with optional price chart.
+
+    Search for stocks using their ticker symbol. The search supports:
+    - Direct ticker lookup (e.g., AAPL, MSFT)
+    - International tickers with exchange suffix (e.g., BARC.L)
+    - Automatic exchange expansion for ambiguous tickers
+    - Historical price chart display (candlestick or line)
+
+    \b
+    Examples:
+        stock-friend search AAPL
+        stock-friend search AAPL --chart
+        stock-friend search AAPL -c -p 1y -t line
+        stock-friend search BARC --exchange L --chart
+        stock-friend search NVDA --chart --period 6mo
+    """
+    search_stock(query, exchange, chart, period, chart_type)
 
 
 @strategy_app.command("list")
