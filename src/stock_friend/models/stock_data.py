@@ -15,6 +15,26 @@ import pandas as pd
 
 
 @dataclass(frozen=True)
+class StockInfo:
+    """
+    Basic stock information (ticker, name, sector, industry).
+
+    Lightweight model for universe/screener results before fetching full data.
+
+    Attributes:
+        ticker: Stock ticker symbol
+        name: Company name
+        sector: Business sector (GICS or similar classification)
+        industry: Industry classification (GICS sub-industry)
+    """
+
+    ticker: str
+    name: str
+    sector: str = "Unknown"
+    industry: str = "Unknown"
+
+
+@dataclass(frozen=True)
 class StockData:
     """
     Stock OHLCV data container.

@@ -27,6 +27,8 @@ pytest-mock = "^3.0"
 pytest-cov = "^4.0"
 ruff = "^0.1"
 mypy = "^1.0"
+selenium = "^4.39.0"
+beautifulsoup4 = "^4.14.3"
 
 [tool.poetry.scripts]
 stock-friend = "stock_friend.__main__:main"

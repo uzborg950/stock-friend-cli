@@ -6,6 +6,17 @@ __pycache__/
 # cache
 /data/cache
 
+# data debug
+/data/debug
+
+# Fund constituents
+/data/universes
+
+# Chrome remote debugging profile (contains user data, cookies, login sessions)
+/remote-profile/
+# EXCEPTION: Keep the README
+!/remote-profile/README.md
+
 
 # C extensions
 *.so

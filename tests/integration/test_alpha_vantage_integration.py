@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from stock_friend.gateways import AlphaVantageGateway
-from stock_friend.gateways.base import DataProviderException;/;'';''
+from stock_friend.gateways.base import DataProviderException
 from stock_friend.infrastructure import CacheManager, RateLimiter, config
 
 
