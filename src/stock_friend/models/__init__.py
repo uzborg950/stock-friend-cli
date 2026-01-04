@@ -11,6 +11,12 @@ from stock_friend.models.stock_data import (
     ComplianceStatus
 )
 from stock_friend.models.search_models import SearchResult, PriceInfo, StockDetailedInfo
+from stock_friend.models.symbol import (
+    NormalizedSymbol,
+    SymbolConfidence,
+    MarketRegion,
+    ExchangeMapping,
+)
 
 __all__ = [
     "StockInfo",
@@ -20,4 +26,8 @@ __all__ = [
     "SearchResult",
     "PriceInfo",
     "StockDetailedInfo",
+    "NormalizedSymbol",
+    "SymbolConfidence",
+    "MarketRegion",
+    "ExchangeMapping",
 ]

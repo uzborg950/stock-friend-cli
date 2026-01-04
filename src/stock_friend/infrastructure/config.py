@@ -11,6 +11,13 @@ from typing import Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Import compliance settings from compliance_config/ subdirectory
+from stock_friend.infrastructure.compliance_config import (
+    ComplianceSettings,
+    ZoyaComplianceSettings,
+    StaticComplianceSettings,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -145,11 +152,21 @@ class ApplicationConfig:
         >>> from stock_friend.infrastructure.config import config
         >>> provider = config.gateway.provider
         >>> cache_dir = config.cache.dir
+        >>> compliance_provider = config.compliance.provider
+        >>> zoya_key = config.compliance_zoya.api_key
 
-    Environment Variables:
+    Environment Variables (Market Data):
         MARKET_DATA_PROVIDER: Market data provider (default: yfinance)
         MARKET_DATA_ALPHA_VANTAGE_API_KEY: Alpha Vantage API key (required only if provider=alpha_vantage)
         MARKET_DATA_YFINANCE_RATE_LIMIT: YFinance rate limit (default: 2000 req/hour)
+
+    Environment Variables (Compliance):
+        COMPLIANCE_PROVIDER: Compliance provider (default: static)
+        COMPLIANCE_ZOYA_API_KEY: Zoya API key (default: sandbox key)
+        COMPLIANCE_ZOYA_ENVIRONMENT: Zoya environment (default: sandbox)
+        COMPLIANCE_STATIC_DATA_FILE: Static CSV file path
+
+    Environment Variables (General):
         CACHE_DIR: Cache directory path (default: data/cache)
         CACHE_SIZE_MB: Cache size limit in MB (default: 500, min: 10)
         DATABASE_PATH: SQLite database path (default: data/stock_cli.db)
@@ -175,10 +192,19 @@ class ApplicationConfig:
         self.logging = LoggingSettings()
         self.rate_limit = RateLimitSettings()
 
+        # Compliance settings (modular - each provider has its own settings class)
+        self.compliance = ComplianceSettings()
+        self.compliance_zoya = ZoyaComplianceSettings()
+        self.compliance_static = StaticComplianceSettings()
+
         # Validate gateway configuration consistency
         self.gateway.validate_config()
 
         logger.info("Configuration loaded successfully")
+        self._log_config()
+
+    def _log_config(self) -> None:
+        """Log configuration summary."""
         logger.debug(f"Market Data Provider: {self.gateway.provider}")
         logger.debug(f"Alpha Vantage API Key: {self.gateway.masked_alpha_vantage_key()}")
         logger.debug(f"YFinance Rate Limit: {self.gateway.yfinance_rate_limit} req/hour")
@@ -187,18 +213,24 @@ class ApplicationConfig:
         logger.debug(f"Log Level: {self.logging.level}")
         logger.debug(f"Rate Limit: {self.rate_limit.requests_per_hour} req/hour")
 
+        # Compliance configuration
+        logger.debug(f"Compliance Provider: {self.compliance.provider}")
+        if self.compliance.provider == "zoya":
+            logger.debug(f"Zoya Environment: {self.compliance_zoya.environment}")
+            logger.debug(f"Zoya API Key: {self.compliance_zoya.masked_api_key()}")
+            logger.debug(f"Zoya Cache TTL: {self.compliance_zoya.cache_ttl_days} days")
+        elif self.compliance.provider == "static":
+            logger.debug(f"Static Data File: {self.compliance_static.data_file}")
+
     def __repr__(self) -> str:
         """Return string representation."""
         return (
             f"ApplicationConfig(\n"
             f"  gateway.provider={self.gateway.provider},\n"
-            f"  gateway.alpha_vantage_api_key={self.gateway.masked_alpha_vantage_key()},\n"
-            f"  gateway.yfinance_rate_limit={self.gateway.yfinance_rate_limit},\n"
+            f"  compliance.provider={self.compliance.provider},\n"
             f"  cache.dir={self.cache.dir},\n"
-            f"  cache.size_mb={self.cache.size_mb},\n"
             f"  database.path={self.database.path},\n"
-            f"  logging.level={self.logging.level},\n"
-            f"  rate_limit.requests_per_hour={self.rate_limit.requests_per_hour}\n"
+            f"  logging.level={self.logging.level}\n"
             f")"
         )
 

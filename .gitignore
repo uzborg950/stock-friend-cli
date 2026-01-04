@@ -12,6 +12,9 @@ __pycache__/
 # Fund constituents
 /data/universes
 
+# All data
+/data
+
 # Chrome remote debugging profile (contains user data, cookies, login sessions)
 /remote-profile/
 # EXCEPTION: Keep the README
