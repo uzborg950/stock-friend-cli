@@ -160,7 +160,8 @@ class StockPresenter:
         1. Stock Information (identity)
         2. Price & Trading (current price, ranges, volume)
         3. Fundamentals (valuation metrics)
-        4. About (company description)
+        4. Halal Compliance (compliance status)
+        5. About (company description)
 
         Args:
             info: StockDetailedInfo to display
@@ -179,7 +180,12 @@ class StockPresenter:
         self._print_fundamentals_section(info)
         self.console.print()
 
-        # Section 4: Description (if available)
+        # Section 4: Halal Compliance (if available)
+        if info.compliance_status:
+            self._print_compliance_section(info)
+            self.console.print()
+
+        # Section 5: Description (if available)
         if info.description:
             self._print_description_section(info)
             self.console.print()
@@ -325,6 +331,66 @@ class StockPresenter:
             table,
             title="[cyan bold]FUNDAMENTALS",
             border_style="cyan",
+        )
+        self.console.print(panel)
+
+    def _print_compliance_section(self, info: StockDetailedInfo) -> None:
+        """Print halal compliance status."""
+        if not info.compliance_status:
+            return
+
+        compliance = info.compliance_status
+        table = Table.grid(padding=(0, 2))
+        table.add_column(style="cyan bold", width=20)
+        table.add_column()
+
+        # Status with colored icon
+        status_text = Text()
+        if compliance.is_compliant is True:
+            status_text.append("✓ Compliant", style="green bold")
+            border_color = "green"
+        elif compliance.is_compliant is False:
+            status_text.append("✗ Non-Compliant", style="red bold")
+            border_color = "red"
+        else:
+            status_text.append("❓ Unknown", style="yellow bold")
+            border_color = "yellow"
+
+        table.add_row("Status", status_text)
+
+        # Source
+        source_display = compliance.source.title() if compliance.source else "Unknown"
+        if compliance.source == "zoya":
+            source_display = "Zoya Finance"
+        table.add_row("Source", source_display)
+
+        # Compliance Score (if available)
+        if compliance.compliance_score is not None:
+            score_text = Text()
+            score_text.append(f"{compliance.compliance_score:.1f}/100", style="bold")
+            table.add_row("Compliance Score", score_text)
+
+        # Purification Ratio (if available)
+        if compliance.compliance_score is not None:
+            # Calculate purification from compliance score (100 - score = purification)
+            purification_pct = 100.0 - compliance.compliance_score
+            if purification_pct > 0:
+                table.add_row("Purification", f"{purification_pct:.1f}%")
+
+        # Reasons (if non-compliant or unknown)
+        if compliance.reasons:
+            reasons_text = ", ".join(compliance.reasons)
+            table.add_row("Notes", self._truncate_text(reasons_text, 50))
+
+        # Report Date (if available)
+        if compliance.checked_at:
+            date_str = compliance.checked_at.strftime("%Y-%m-%d")
+            table.add_row("Checked", date_str)
+
+        panel = Panel(
+            table,
+            title="[cyan bold]HALAL COMPLIANCE",
+            border_style=border_color,
         )
         self.console.print(panel)
 

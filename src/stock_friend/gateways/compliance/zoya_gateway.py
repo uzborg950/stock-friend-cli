@@ -83,27 +83,24 @@ class ZoyaComplianceGateway(IComplianceGateway):
     - Live: Authorization: live-YOUR_API_KEY
 
     API Endpoints:
-    - Sandbox: https://sandbox-api.zoya.finance/graphql
-    - Live: https://api.zoya.finance/graphql
+    - Sandbox: https://sandbox-api.zoya.finance/graphql (default)
+    - Live: https://api.zoya.finance/graphql (default)
+    - URLs can be overridden via api_url parameter
 
     Example:
         >>> gateway = ZoyaComplianceGateway(
         ...     api_key="sandbox-a566b7b5-f0ce-4428-b842-3e3a20a19249",
-        ...     environment="sandbox"
+        ...     api_url="https://sandbox-api.zoya.finance/graphql"
         ... )
         >>> status = gateway.check_compliance("AAPL")
         >>> print(status.is_compliant)
         True
     """
 
-    # Default API URLs
-    SANDBOX_URL = "https://sandbox-api.zoya.finance/graphql"
-    LIVE_URL = "https://api.zoya.finance/graphql"
-
     def __init__(
         self,
         api_key: str,
-        environment: str = "sandbox",
+        api_url: str,
         cache_manager: Optional[CacheManager] = None,
         rate_limiter: Optional[RateLimiter] = None,
         cache_ttl_days: int = 30,
@@ -113,33 +110,40 @@ class ZoyaComplianceGateway(IComplianceGateway):
 
         Args:
             api_key: Zoya API key
-            environment: "sandbox" or "live"
+            api_url: Zoya GraphQL API endpoint URL
             cache_manager: Optional cache manager (recommended)
             rate_limiter: Optional rate limiter (recommended)
             cache_ttl_days: Cache TTL in days (default: 30)
 
-        Raises:
-            ValueError: If environment is invalid
+        Note:
+            The environment (sandbox/live) is inferred from the API key prefix.
         """
         self.api_key = api_key
-        self.environment = environment.lower()
+        self.api_url = api_url
         self.cache_manager = cache_manager
         self.rate_limiter = rate_limiter
         self.cache_ttl_days = cache_ttl_days
 
-        # Select API URL based on environment
-        if self.environment == "sandbox":
-            self.api_url = self.SANDBOX_URL
-        elif self.environment == "live":
-            self.api_url = self.LIVE_URL
+        # Infer environment from API key prefix
+        if api_key.startswith("sandbox-"):
+            self.environment = "sandbox"
+        elif api_key.startswith("live-"):
+            self.environment = "live"
         else:
-            raise ValueError(f"Invalid environment: {environment}. Must be 'sandbox' or 'live'")
+            # Default to sandbox if prefix not recognized
+            self.environment = "sandbox"
+            logger.warning(
+                f"Could not infer environment from API key prefix. Defaulting to 'sandbox'. "
+                f"Expected key to start with 'sandbox-' or 'live-'"
+            )
 
         # Configure rate limiter: 10 requests per second = 36000 requests per hour
         if self.rate_limiter:
             self.rate_limiter.configure("zoya", requests_per_hour=36000)
 
-        logger.info(f"Initialized ZoyaComplianceGateway (environment={environment})")
+        logger.info(
+            f"Initialized ZoyaComplianceGateway (environment={self.environment}, api_url={api_url})"
+        )
 
     def check_compliance(self, ticker: str) -> ComplianceStatus:
         """

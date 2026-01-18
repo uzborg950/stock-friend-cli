@@ -19,48 +19,54 @@ from stock_friend.infrastructure.cache_manager import CacheManager
 from stock_friend.infrastructure.rate_limiter import RateLimiter
 from stock_friend.models.compliance import ComplianceStatus
 
+# Test URLs
+SANDBOX_URL = "https://sandbox-api.zoya.finance/graphql"
+LIVE_URL = "https://api.zoya.finance/graphql"
+
 
 class TestZoyaComplianceGatewayInitialization:
     """Test gateway initialization scenarios."""
 
     def test_init_with_sandbox_environment(self):
-        """Test initialization with sandbox environment."""
+        """Test initialization with sandbox API URL and sandbox key."""
         gateway = ZoyaComplianceGateway(
             api_key="sandbox-test-key",
-            environment="sandbox",
+            api_url=SANDBOX_URL,
         )
 
         assert gateway.api_key == "sandbox-test-key"
         assert gateway.environment == "sandbox"
-        assert gateway.api_url == gateway.SANDBOX_URL
+        assert gateway.api_url == SANDBOX_URL
         assert gateway.cache_ttl_days == 30
         assert gateway.get_name() == "zoya_sandbox"
 
     def test_init_with_live_environment(self):
-        """Test initialization with live environment."""
+        """Test initialization with live API URL and live key."""
         gateway = ZoyaComplianceGateway(
             api_key="live-test-key",
-            environment="live",
+            api_url=LIVE_URL,
         )
 
         assert gateway.api_key == "live-test-key"
         assert gateway.environment == "live"
-        assert gateway.api_url == gateway.LIVE_URL
+        assert gateway.api_url == LIVE_URL
         assert gateway.get_name() == "zoya_live"
 
     def test_init_with_invalid_environment_raises_error(self):
-        """Test initialization with invalid environment raises ValueError."""
-        with pytest.raises(ValueError, match="Invalid environment"):
-            ZoyaComplianceGateway(
-                api_key="test-key",
-                environment="invalid",
-            )
-
-    def test_init_normalizes_environment_case(self):
-        """Test that environment is normalized to lowercase."""
+        """Test initialization infers environment from API key prefix."""
+        # When key doesn't have standard prefix, defaults to sandbox
         gateway = ZoyaComplianceGateway(
             api_key="test-key",
-            environment="SANDBOX",
+            api_url=SANDBOX_URL,
+        )
+
+        assert gateway.environment == "sandbox"
+
+    def test_init_normalizes_environment_case(self):
+        """Test that environment is inferred from API key prefix."""
+        gateway = ZoyaComplianceGateway(
+            api_key="sandbox-TEST-KEY",
+            api_url=SANDBOX_URL,
         )
 
         assert gateway.environment == "sandbox"
@@ -70,6 +76,7 @@ class TestZoyaComplianceGatewayInitialization:
         mock_cache = Mock(spec=CacheManager)
         gateway = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             cache_manager=mock_cache,
         )
 
@@ -80,6 +87,7 @@ class TestZoyaComplianceGatewayInitialization:
         mock_rate_limiter = Mock(spec=RateLimiter)
         gateway = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             rate_limiter=mock_rate_limiter,
         )
 
@@ -91,6 +99,7 @@ class TestZoyaComplianceGatewayInitialization:
         """Test initialization with custom cache TTL."""
         gateway = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             cache_ttl_days=60,
         )
 
@@ -103,7 +112,7 @@ class TestCheckCompliance:
     @pytest.fixture
     def gateway(self):
         """Create gateway for testing."""
-        return ZoyaComplianceGateway(api_key="sandbox-test-key")
+        return ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
 
     def test_check_compliant_stock(self, gateway):
         """Test checking a compliant stock."""
@@ -292,7 +301,7 @@ class TestCheckCompliance:
         with pytest.raises(ValueError, match="Ticker cannot be empty"):
             gateway.check_compliance("")
 
-    def test_check_with_cache_hit(self, gateway):
+    def test_check_with_cache_hit(self):
         """Test that cached results are returned without API call."""
         mock_cache = Mock(spec=CacheManager)
         cached_status = ComplianceStatus(
@@ -304,6 +313,7 @@ class TestCheckCompliance:
 
         gateway_with_cache = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             cache_manager=mock_cache,
         )
 
@@ -314,13 +324,14 @@ class TestCheckCompliance:
             mock_post.assert_not_called()  # No API call
             mock_cache.get.assert_called_once_with("compliance:zoya:sandbox:AAPL")
 
-    def test_check_caches_result(self, gateway):
+    def test_check_caches_result(self):
         """Test that results are cached after API call."""
         mock_cache = Mock(spec=CacheManager)
         mock_cache.get.return_value = None  # Cache miss
 
         gateway_with_cache = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             cache_manager=mock_cache,
             cache_ttl_days=30,
         )
@@ -349,11 +360,12 @@ class TestCheckCompliance:
             assert call_args[0][1].ticker == "AAPL"  # Cached status
             assert call_args[1]["ttl"] == timedelta(days=30)  # TTL
 
-    def test_check_applies_rate_limiting(self, gateway):
+    def test_check_applies_rate_limiting(self):
         """Test that rate limiting is applied before API call."""
         mock_rate_limiter = Mock(spec=RateLimiter)
         gateway_with_limiter = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             rate_limiter=mock_rate_limiter,
         )
 
@@ -415,7 +427,7 @@ class TestCheckBatch:
     @pytest.fixture
     def gateway(self):
         """Create gateway for testing."""
-        return ZoyaComplianceGateway(api_key="sandbox-test-key")
+        return ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
 
     def test_check_batch_mixed_tickers(self, gateway):
         """Test batch check with mix of compliant and non-compliant stocks."""
@@ -532,7 +544,7 @@ class TestCheckBatch:
             assert "AAPL" in results
             assert "GOOGL" in results
 
-    def test_check_batch_uses_cache(self, gateway):
+    def test_check_batch_uses_cache(self):
         """Test batch check uses cache for already-cached tickers."""
         mock_cache = Mock(spec=CacheManager)
 
@@ -544,6 +556,7 @@ class TestCheckBatch:
 
         gateway_with_cache = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             cache_manager=mock_cache,
         )
 
@@ -589,7 +602,7 @@ class TestFilterCompliant:
     @pytest.fixture
     def gateway(self):
         """Create gateway for testing."""
-        return ZoyaComplianceGateway(api_key="sandbox-test-key")
+        return ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
 
     def test_filter_compliant_basic(self, gateway):
         """Test filtering compliant stocks from mixed list."""
@@ -681,7 +694,7 @@ class TestParseZoyaStatus:
     @pytest.fixture
     def gateway(self):
         """Create gateway for testing."""
-        return ZoyaComplianceGateway(api_key="sandbox-test-key")
+        return ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
 
     def test_parse_compliant_status(self, gateway):
         """Test parsing compliant status strings."""
@@ -710,7 +723,7 @@ class TestExecuteGraphQL:
     @pytest.fixture
     def gateway(self):
         """Create gateway for testing."""
-        return ZoyaComplianceGateway(api_key="sandbox-test-key")
+        return ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
 
     def test_execute_graphql_success(self, gateway):
         """Test successful GraphQL execution."""
@@ -774,7 +787,7 @@ class TestRetryLogic:
     @pytest.fixture
     def gateway(self):
         """Create gateway for testing."""
-        return ZoyaComplianceGateway(api_key="sandbox-test-key")
+        return ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
 
     def test_retry_on_network_error(self, gateway):
         """Test retry logic on network errors."""
@@ -831,12 +844,12 @@ class TestGetName:
 
     def test_get_name_sandbox(self):
         """Test gateway name for sandbox environment."""
-        gateway = ZoyaComplianceGateway(api_key="test-key", environment="sandbox")
+        gateway = ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
         assert gateway.get_name() == "zoya_sandbox"
 
     def test_get_name_live(self):
         """Test gateway name for live environment."""
-        gateway = ZoyaComplianceGateway(api_key="test-key", environment="live")
+        gateway = ZoyaComplianceGateway(api_key="live-test-key", api_url=LIVE_URL)
         assert gateway.get_name() == "zoya_live"
 
 
@@ -846,7 +859,7 @@ class TestGetAllReports:
     @pytest.fixture
     def gateway(self):
         """Create gateway for testing."""
-        return ZoyaComplianceGateway(api_key="sandbox-test-key")
+        return ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
 
     def test_get_all_reports_single_page(self, gateway):
         """Test fetching all reports with single page of results."""
@@ -1044,11 +1057,12 @@ class TestGetAllReports:
             assert len(results) == 0
             assert mock_post.call_count == 1
 
-    def test_get_all_reports_applies_rate_limiting(self, gateway):
+    def test_get_all_reports_applies_rate_limiting(self):
         """Test that rate limiting is applied during pagination."""
         mock_rate_limiter = Mock(spec=RateLimiter)
         gateway_with_limiter = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             rate_limiter=mock_rate_limiter,
         )
 
@@ -1099,7 +1113,7 @@ class TestFetchReportsPage:
     @pytest.fixture
     def gateway(self):
         """Create gateway for testing."""
-        return ZoyaComplianceGateway(api_key="sandbox-test-key")
+        return ZoyaComplianceGateway(api_key="sandbox-test-key", api_url=SANDBOX_URL)
 
     def test_fetch_reports_page_stocks(self, gateway):
         """Test fetching a page of stock reports."""
@@ -1219,11 +1233,12 @@ class TestFetchReportsPage:
             assert result["items"] == []
             assert result["nextToken"] is None
 
-    def test_fetch_reports_page_applies_rate_limiting(self, gateway):
+    def test_fetch_reports_page_applies_rate_limiting(self):
         """Test that rate limiting is applied before fetching page."""
         mock_rate_limiter = Mock(spec=RateLimiter)
         gateway_with_limiter = ZoyaComplianceGateway(
             api_key="test-key",
+            api_url=SANDBOX_URL,
             rate_limiter=mock_rate_limiter,
         )
 

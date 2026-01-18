@@ -174,28 +174,29 @@ class ApplicationConfig:
         RATE_LIMIT_REQUESTS_PER_HOUR: Rate limit (default: 300, min: 1)
     """
 
-    def __init__(self, env_file: Optional[str] = None):
+    def __init__(self, _env_file: Optional[str] = ".env"):
         """
         Initialize configuration.
 
         Args:
-            env_file: Optional path to .env file (default: searches for .env)
+            _env_file: Path to .env file (default: ".env").
+                      Set to None to disable .env file loading (useful for testing).
 
         Raises:
             ValueError: If configuration validation fails
         """
-        # If env_file not specified, pydantic_settings will automatically
-        # search for .env in current directory
-        self.gateway = GatewaySettings()
-        self.cache = CacheSettings()
-        self.database = DatabaseSettings()
-        self.logging = LoggingSettings()
-        self.rate_limit = RateLimitSettings()
+        # Pass _env_file to all settings classes for consistent behavior
+        # If _env_file=None, disables .env loading (important for test isolation)
+        self.gateway = GatewaySettings(_env_file=_env_file)
+        self.cache = CacheSettings(_env_file=_env_file)
+        self.database = DatabaseSettings(_env_file=_env_file)
+        self.logging = LoggingSettings(_env_file=_env_file)
+        self.rate_limit = RateLimitSettings(_env_file=_env_file)
 
         # Compliance settings (modular - each provider has its own settings class)
-        self.compliance = ComplianceSettings()
-        self.compliance_zoya = ZoyaComplianceSettings()
-        self.compliance_static = StaticComplianceSettings()
+        self.compliance = ComplianceSettings(_env_file=_env_file)
+        self.compliance_zoya = ZoyaComplianceSettings(_env_file=_env_file)
+        self.compliance_static = StaticComplianceSettings(_env_file=_env_file)
 
         # Validate gateway configuration consistency
         self.gateway.validate_config()

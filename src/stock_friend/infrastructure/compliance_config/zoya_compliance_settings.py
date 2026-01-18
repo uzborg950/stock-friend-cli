@@ -41,7 +41,7 @@ class ZoyaComplianceSettings(BaseSettings):
     )
 
     api_url_sandbox: str = Field(
-        default="https://api.zoya.finance/graphql",
+        default="https://sandbox-api.zoya.finance/graphql",
         description="Zoya sandbox GraphQL endpoint"
     )
 

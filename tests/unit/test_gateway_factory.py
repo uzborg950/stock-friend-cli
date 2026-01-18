@@ -32,7 +32,7 @@ def mock_rate_limiter():
 def config_yfinance():
     """Create config with yfinance as provider."""
     with patch.dict(os.environ, {"MARKET_DATA_PROVIDER": "yfinance"}, clear=True):
-        return ApplicationConfig()
+        return ApplicationConfig(_env_file=None)
 
 
 @pytest.fixture
@@ -46,7 +46,7 @@ def config_alpha_vantage():
         },
         clear=True,
     ):
-        return ApplicationConfig()
+        return ApplicationConfig(_env_file=None)
 
 
 @pytest.fixture
@@ -142,7 +142,7 @@ class TestCreateYFinanceGateway:
         with patch.dict(
             os.environ, {"MARKET_DATA_YFINANCE_RATE_LIMIT": "5000"}, clear=True
         ):
-            config = ApplicationConfig()
+            config = ApplicationConfig(_env_file=None)
             factory = GatewayFactory(config, mock_cache_manager, mock_rate_limiter)
             gateway = factory.create_gateway("yfinance")
 
@@ -165,7 +165,7 @@ class TestCreateAlphaVantageGateway:
     ):
         """Test Alpha Vantage gateway creation fails without API key."""
         with patch.dict(os.environ, {"MARKET_DATA_PROVIDER": "yfinance"}, clear=True):
-            config = ApplicationConfig()
+            config = ApplicationConfig(_env_file=None)
             factory = GatewayFactory(config, mock_cache_manager, mock_rate_limiter)
 
             with pytest.raises(ValueError, match="Alpha Vantage API key is required"):
@@ -196,7 +196,7 @@ class TestGatewaySwitching:
             },
             clear=True,
         ):
-            config = ApplicationConfig()
+            config = ApplicationConfig(_env_file=None)
             factory = GatewayFactory(config, mock_cache_manager, mock_rate_limiter)
 
             # Default is yfinance
@@ -219,7 +219,7 @@ class TestGatewaySwitching:
             },
             clear=True,
         ):
-            config = ApplicationConfig()
+            config = ApplicationConfig(_env_file=None)
             factory = GatewayFactory(config, mock_cache_manager, mock_rate_limiter)
 
             # Default is alpha_vantage

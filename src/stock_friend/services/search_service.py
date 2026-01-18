@@ -13,6 +13,7 @@ from datetime import timedelta
 from typing import Dict, List, Optional
 
 from stock_friend.gateways.base import IMarketDataGateway, DataProviderException
+from stock_friend.gateways.compliance.base import IComplianceGateway
 from stock_friend.infrastructure.cache_manager import CacheManager
 from stock_friend.models.search_models import SearchResult, StockDetailedInfo, PriceInfo
 from stock_friend.models.stock_data import StockData
@@ -49,6 +50,7 @@ class SearchService:
         self,
         gateway: IMarketDataGateway,
         cache_manager: Optional[CacheManager] = None,
+        compliance_gateway: Optional[IComplianceGateway] = None,
     ):
         """
         Initialize search service.
@@ -56,9 +58,11 @@ class SearchService:
         Args:
             gateway: Market data gateway for fetching stock information
             cache_manager: Optional cache manager for search result caching
+            compliance_gateway: Optional compliance gateway for halal screening
         """
         self.gateway = gateway
         self.cache_manager = cache_manager
+        self.compliance_gateway = compliance_gateway
         self.logger = logger
 
     def search(
@@ -149,11 +153,27 @@ class SearchService:
             # Get description if available (from yfinance info)
             description = self._fetch_description(ticker)
 
+            # Check compliance if gateway is available
+            compliance_status = None
+            if self.compliance_gateway:
+                try:
+                    # Extract base ticker symbol (remove exchange suffix for Zoya lookup)
+                    base_ticker = self._extract_base_ticker(ticker)
+                    compliance_status = self.compliance_gateway.check_compliance(base_ticker)
+                    self.logger.info(
+                        f"Compliance check for {ticker} ({base_ticker}): "
+                        f"{compliance_status.is_compliant} (source: {compliance_status.source})"
+                    )
+                except Exception as e:
+                    # Log error but don't fail the entire request
+                    self.logger.warning(f"Compliance check failed for {ticker}: {e}")
+
             return StockDetailedInfo(
                 ticker=ticker,
                 fundamental=fundamental,
                 price=price_info,
                 description=description,
+                compliance_status=compliance_status,
             )
 
         except DataProviderException:
@@ -411,3 +431,28 @@ class SearchService:
         # 1. Adding to IMarketDataGateway interface
         # 2. Accessing yfinance.Ticker.info['longBusinessSummary'] directly
         return None
+
+    def _extract_base_ticker(self, ticker: str) -> str:
+        """
+        Extract base ticker symbol by removing exchange suffix.
+
+        Zoya API uses base symbols without exchange suffixes
+        (e.g., "BMW" instead of "BMW.DE").
+
+        Args:
+            ticker: Full ticker symbol (e.g., "AAPL", "BMW.DE", "BARC.L")
+
+        Returns:
+            Base ticker symbol (e.g., "AAPL", "BMW", "BARC")
+
+        Example:
+            >>> service._extract_base_ticker("AAPL")
+            'AAPL'
+            >>> service._extract_base_ticker("BMW.DE")
+            'BMW'
+            >>> service._extract_base_ticker("BARC.L")
+            'BARC'
+        """
+        if "." in ticker:
+            return ticker.split(".")[0]
+        return ticker

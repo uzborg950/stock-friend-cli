@@ -151,14 +151,18 @@ class ComplianceGatewayFactory:
 
         # Validate environment
         environment = self.config.compliance_zoya.environment.lower()
-        if environment not in ("sandbox", "live"):
+        if environment not in {"sandbox", "live"}:
             raise ValueError(
-                f"Invalid Zoya environment: {environment}. Must be 'sandbox' or 'live'."
+                f"Invalid Zoya environment: {self.config.compliance_zoya.environment}. "
+                f"Must be 'sandbox' or 'live'"
             )
+
+        # Get API URL based on environment (from .env or defaults)
+        api_url = self.config.compliance_zoya.get_api_url()
 
         gateway = ZoyaComplianceGateway(
             api_key=self.config.compliance_zoya.api_key,
-            environment=environment,
+            api_url=api_url,
             cache_manager=self.cache_manager,
             rate_limiter=self.rate_limiter,
             cache_ttl_days=self.config.compliance_zoya.cache_ttl_days,
@@ -173,7 +177,7 @@ class ComplianceGatewayFactory:
 
         logger.info(
             f"Created ZoyaComplianceGateway "
-            f"(environment: {environment}, API key: {masked_key}, "
+            f"(environment: {environment}, API URL: {api_url}, API key: {masked_key}, "
             f"cache TTL: {self.config.compliance_zoya.cache_ttl_days} days)"
         )
         return gateway

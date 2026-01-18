@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Optional
 
 from stock_friend.models.stock_data import FundamentalData
+from stock_friend.models.compliance import ComplianceStatus
 
 
 @dataclass(frozen=True)
@@ -83,12 +84,14 @@ class StockDetailedInfo:
         fundamental: Fundamental financial metrics
         price: Current price information
         description: Company business description (optional)
+        compliance_status: Halal compliance status (optional)
     """
 
     ticker: str
     fundamental: FundamentalData
     price: PriceInfo
     description: Optional[str] = None
+    compliance_status: Optional[ComplianceStatus] = None
 
     @property
     def company_name(self) -> str:

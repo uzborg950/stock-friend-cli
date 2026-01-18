@@ -101,18 +101,18 @@ class NormalizedSymbol:
 @dataclass(frozen=True)
 class ExchangeMapping:
     """
-    Mapping between different exchange code formats.
+    Exchange mapping from Bloomberg MIC codes.
 
-    Tracks mappings between yfinance suffixes, Bloomberg codes, and
-    human-readable exchange names.
+    Maps Market Identifier Codes (MIC) to regional and composite codes
+    for accurate symbol normalization across different data providers.
     """
 
-    yfinance_suffix: str  # yfinance format (e.g., ".DE", ".L")
-    bloomberg_code: str  # Bloomberg format (e.g., "XETR", "XLON")
-    exchange_name: str  # Human-readable name
-    market_region: MarketRegion  # Geographic region
+    mic: str  # Market Identifier Code (e.g., "XETR", "XLON")
+    exchange_name: str  # Human-readable exchange name
+    bloomberg_regional_code: str  # Bloomberg regional equity exchange code (e.g., "GY", "LN")
+    bloomberg_composite_code: str  # Bloomberg composite code (e.g., "GR", "US")
     country_code: str  # ISO country code (e.g., "DE", "US", "GB")
 
     def __str__(self) -> str:
         """String representation."""
-        return f"{self.yfinance_suffix} → {self.bloomberg_code} ({self.exchange_name})"
+        return f"{self.mic} ({self.exchange_name}) - {self.country_code}"

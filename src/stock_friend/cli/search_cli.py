@@ -15,6 +15,7 @@ from stock_friend.gateways.base import DataProviderException
 from stock_friend.infrastructure.cache_manager import CacheManager
 from stock_friend.infrastructure.config import ApplicationConfig
 from stock_friend.infrastructure.gateway_factory import GatewayFactory
+from stock_friend.infrastructure.compliance_gateway_factory import ComplianceGatewayFactory
 from stock_friend.infrastructure.rate_limiter import RateLimiter
 from stock_friend.presenters.stock_presenter import StockPresenter
 from stock_friend.presenters.chart_presenter import ChartPresenter, ChartType
@@ -37,6 +38,7 @@ def _get_search_service() -> SearchService:
     - ApplicationConfig (from environment)
     - CacheManager and RateLimiter
     - GatewayFactory -> IMarketDataGateway
+    - ComplianceGatewayFactory -> IComplianceGateway
     - SearchService
 
     Returns:
@@ -59,17 +61,25 @@ def _get_search_service() -> SearchService:
             )
             rate_limiter = RateLimiter()
 
-            # Create gateway via factory
+            # Create market data gateway via factory
             factory = GatewayFactory(config, cache_manager, rate_limiter)
             gateway = factory.create_gateway()
 
-            # Create service
+            # Create compliance gateway via factory
+            compliance_factory = ComplianceGatewayFactory(config, cache_manager, rate_limiter)
+            compliance_gateway = compliance_factory.create_gateway()
+
+            # Create service with both gateways
             _search_service = SearchService(
                 gateway=gateway,
                 cache_manager=cache_manager,
+                compliance_gateway=compliance_gateway,
             )
 
-            logger.info(f"Initialized search service with {gateway.get_name()} gateway")
+            logger.info(
+                f"Initialized search service with {gateway.get_name()} gateway "
+                f"and {compliance_gateway.get_name()} compliance gateway"
+            )
 
         except Exception as e:
             console.print(f"[red]Failed to initialize search service:[/red] {e}")
